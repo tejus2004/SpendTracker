@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SpendTrack</string>
+    <string name="dashboard_title">Dashboard</string>
+    <string name="add_expense_title">Add expense</string>
+    <string name="history_title">History</string>
+    <string name="widget_title">SpendTrack</string>
+    <string name="widget_subtitle">Ultra fast expense entry</string>
+</resources>

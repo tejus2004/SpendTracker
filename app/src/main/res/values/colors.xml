@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="spendtrack_primary">#1F6FEB</color>
+    <color name="spendtrack_secondary">#11A37F</color>
+    <color name="spendtrack_tertiary">#F97316</color>
+    <color name="spendtrack_background">#F6F8FC</color>
+    <color name="spendtrack_surface">#FFFFFF</color>
+</resources>
