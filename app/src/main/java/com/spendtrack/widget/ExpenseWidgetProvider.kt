@@ -21,6 +21,16 @@ class ExpenseWidgetProvider : AppWidgetProvider() {
         ExpenseWidgetUpdater.refresh(context)
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: android.os.Bundle
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        ExpenseWidgetUpdater.refresh(context)
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_TOGGLE_VISIBILITY) {
@@ -44,7 +54,7 @@ class ExpenseWidgetProvider : AppWidgetProvider() {
                 val views = RemoteViews(context.packageName, R.layout.widget_expense_quick_add)
                 val isVisible = isAmountVisible(context)
                 views.setTextViewText(R.id.widget_total_value, if (isVisible) formatCurrency(totalCents) else "••••")
-                views.setImageViewResource(R.id.widget_toggle_visibility, if (isVisible) android.R.drawable.ic_menu_view else android.R.drawable.ic_menu_close_clear_cancel)
+                views.setTextViewText(R.id.widget_toggle_visibility, if (isVisible) "⇔" else "↔")
                 views.setContentDescription(R.id.widget_toggle_visibility, if (isVisible) "Hide monthly total" else "Show monthly total")
                 views.setOnClickPendingIntent(R.id.widget_open_quick_add, quickAddIntent(context))
                 views.setOnClickPendingIntent(R.id.widget_open_history, historyIntent(context))
