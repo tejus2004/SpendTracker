@@ -4,6 +4,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,14 +13,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Fastfood
@@ -27,17 +32,21 @@ import androidx.compose.material.icons.outlined.MedicalServices
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.material.icons.outlined.ReceiptLong
 import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,18 +59,48 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.spendtrack.data.DashboardSummary
+import com.spendtrack.data.ExpenseEntity
 import com.spendtrack.domain.ExpenseCategory
 import com.spendtrack.ui.util.formatExpenseDate
 import com.spendtrack.ui.util.formatMoney
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun DashboardScreen(
     summary: DashboardSummary,
+    expenses: List<ExpenseEntity>,
     onQuickAdd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val chartItems = remember(summary.categoryTotals, summary.monthlyTotalCents) {
         buildCategoryChartItems(summary.categoryTotals, summary.monthlyTotalCents)
+    }
+    val today = LocalDate.now()
+    val monthDateFormatter = remember { DateTimeFormatter.ofPattern("MMM d") }
+    val monthYearFormatter = remember { DateTimeFormatter.ofPattern("MMMM yyyy") }
+    var calendarOpen by remember { mutableStateOf(false) }
+    var selectedDay by remember { mutableStateOf<LocalDate?>(null) }
+    var calendarMonth by remember { mutableStateOf(YearMonth.from(today)) }
+    val monthExpenses = remember(expenses, calendarMonth) {
+        expenses.filter { expense ->
+            val date = Instant.ofEpochMilli(expense.createdAtMillis)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+            YearMonth.from(date) == calendarMonth
+        }
+    }
+    val dailyTotals = remember(monthExpenses) {
+        monthExpenses.groupBy { expense ->
+            Instant.ofEpochMilli(expense.createdAtMillis)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate()
+        }.mapValues { (_, entries) ->
+            entries.sumOf { it.amountCents }
+        }
     }
 
     LazyColumn(
@@ -76,24 +115,33 @@ fun DashboardScreen(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Category,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Category,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Monthly summary", style = MaterialTheme.typography.labelLarge)
+                                Text("Your smartest view of the month", style = MaterialTheme.typography.bodySmall)
+                            }
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text("Monthly summary", style = MaterialTheme.typography.labelLarge)
-                            Text("Your smartest view of the month", style = MaterialTheme.typography.bodySmall)
+                        IconButton(onClick = { calendarOpen = true }) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = "Open spending calendar")
                         }
                     }
 
@@ -190,7 +238,133 @@ fun DashboardScreen(
             }
         }
     }
+
+    if (calendarOpen) {
+        val monthDateEntries = (1..calendarMonth.lengthOfMonth()).map { day ->
+            val date = calendarMonth.atDay(day)
+            val total = dailyTotals[date] ?: 0L
+            val entries = monthExpenses.filter { expense ->
+                Instant.ofEpochMilli(expense.createdAtMillis)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate() == date
+            }
+            MonthDayEntry(date, total, entries)
+        }
+
+        AlertDialog(
+            onDismissRequest = { calendarOpen = false },
+            title = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(
+                            onClick = { calendarMonth = calendarMonth.minusMonths(1) }
+                        ) {
+                            Text("<", style = MaterialTheme.typography.titleLarge)
+                        }
+                        Text(calendarMonth.format(monthYearFormatter), style = MaterialTheme.typography.titleMedium)
+                        IconButton(
+                            onClick = { calendarMonth = calendarMonth.plusMonths(1) },
+                            enabled = calendarMonth < YearMonth.from(today)
+                        ) {
+                            Text(">", style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                    Text(
+                        "Tap a date to see its expense breakdown",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 420.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    monthDateEntries.forEach { dayEntry ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { selectedDay = dayEntry.date; calendarOpen = false }
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(dayEntry.date.format(monthDateFormatter), style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                if (dayEntry.totalCents > 0L) formatMoney(dayEntry.totalCents) else "No spend",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (dayEntry.totalCents > 0L) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { calendarOpen = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    selectedDay?.let { selectedDate ->
+        val dayEntries = monthExpenses.filter { expense ->
+            Instant.ofEpochMilli(expense.createdAtMillis)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate() == selectedDate
+        }
+        val dateTotal = dayEntries.sumOf { it.amountCents }
+
+        AlertDialog(
+            onDismissRequest = { selectedDay = null },
+            title = { Text(selectedDate.format(monthDateFormatter)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Total: ${formatMoney(dateTotal)}", style = MaterialTheme.typography.titleSmall)
+                    if (dayEntries.isEmpty()) {
+                        Text("No expenses recorded for this date.")
+                    } else {
+                        dayEntries.forEach { expense ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        ExpenseCategory.fromStoredValue(expense.category).displayName,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    expense.note?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                }
+                                Text(formatMoney(expense.amountCents), style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { selectedDay = null }) {
+                    Text("Done")
+                }
+            }
+        )
+    }
 }
+
+private data class MonthDayEntry(
+    val date: LocalDate,
+    val totalCents: Long,
+    val entries: List<ExpenseEntity>
+)
 
 @Composable
 private fun SimpleBarChart(items: List<CategoryChartItem>) {

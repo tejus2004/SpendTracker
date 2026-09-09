@@ -108,6 +108,7 @@ fun SpendTrackApp(application: SpendTrackApplication, initialTab: AppTab = AppTa
             AppTab.Dashboard -> DashboardScreen(
                 modifier = Modifier.padding(paddingValues),
                 summary = dashboardSummaryState.value,
+                expenses = historyExpensesState.value,
                 onQuickAdd = { selectedTab = AppTab.Add }
             )
 
@@ -163,7 +164,9 @@ fun SpendTrackApp(application: SpendTrackApplication, initialTab: AppTab = AppTa
                         expense.copy(
                             amountCents = draft.amountCents,
                             category = draft.category.name,
-                            note = draft.note
+                            note = draft.note,
+                            createdAtMillis = draft.dateMillis,
+                            updatedAtMillis = System.currentTimeMillis()
                         )
                     )
                     ExpenseWidgetUpdater.refresh(application)
