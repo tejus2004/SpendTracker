@@ -44,7 +44,7 @@ class ExpenseRepository(
                 amountCents = draft.amountCents,
                 category = draft.category.name,
                 note = draft.note,
-                createdAtMillis = now,
+                createdAtMillis = draft.dateMillis,
                 updatedAtMillis = now
             )
         )

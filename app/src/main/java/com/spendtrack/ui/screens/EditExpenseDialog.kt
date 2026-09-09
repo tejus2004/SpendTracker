@@ -28,10 +28,11 @@ fun EditExpenseDialog(
         text = {
             ExpenseEntryForm(
                 title = "Edit expense",
-                subtitle = "Update the amount, category, or note.",
+                subtitle = "Update the amount, category, note, or date.",
                 initialAmount = amountCentsToInput(expense.amountCents),
                 initialCategory = ExpenseCategory.fromStoredValue(expense.category),
                 initialNote = expense.note.orEmpty(),
+                initialDateMillis = expense.createdAtMillis,
                 saveButtonText = "Update expense",
                 onSave = onSave,
                 onSaved = onDismiss
